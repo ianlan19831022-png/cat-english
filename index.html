@@ -340,6 +340,7 @@ const App = {
 
   async init(){
     await this.openDB(); await this.seedData();
+    this._initVoices();
     this.bindNav(); await this.checkStreak(); await this.refreshHome();
   },
 
@@ -703,35 +704,41 @@ const App = {
     b.querySelector('.wb-phonetic').textContent=phonetic||'/ /';
     b.querySelector('.wb-meaning').textContent=meaning||'翻译失败';
     // Auto speak
-    this._speakGoogleTTS(word);
+    this._ttsPlay(word);
     // Auto hide after 4s
     clearTimeout(this._wbTimer);this._wbTimer=setTimeout(()=>b.style.display='none',4000);
   },
 
   // ── TTS ──
-  speakNow(btn){const t=btn.dataset.text;if(t)this._speakGoogleTTS(t);},
-  _speakGoogleTTS(text){
-    const chunks=this._splitChunks(text,180);this._ttsPlaying=true;
-    // Create all Audio elements synchronously (within user gesture)
-    const audios=[];
-    for(const c of chunks){
-      const a=new Audio(`https://translate.google.com/translate_tts?ie=UTF-8&q=${encodeURIComponent(c)}&tl=en&client=tw-ob`);
-      a.volume=1;audios.push(a);
-    }
-    // Now play sequentially
-    this._playChunks(audios,0,text);
+  // TTS — try Google Cloud first, fallback to local Google voice, then any voice
+  _initVoices(){
+    if(!window.speechSynthesis)return;
+    const load=()=>{this._allVoices=speechSynthesis.getVoices();};
+    load();speechSynthesis.onvoiceschanged=load;
   },
-  async _playChunks(audios,i,fallbackText){
-    if(i>=audios.length||!this._ttsPlaying){this._ttsPlaying=false;return;}
-    const a=audios[i];
+  _bestVoice(){
+    const v=this._allVoices||speechSynthesis.getVoices();
+    return v.find(x=>x.lang==='en-US'&&x.name.includes('Google'))||v.find(x=>x.lang.startsWith('en'))||v[0];
+  },
+  speakNow(btn){const t=btn.dataset.text;if(t)this._ttsPlay(t);},
+  async _ttsPlay(text){
+    const chunks=this._splitChunks(text,180);
+    // Try Google Cloud TTS first
     let ok=false;
-    try{ok=await new Promise(r=>{a.onended=()=>r(true);a.onerror=()=>r(false);a.play();setTimeout(()=>r(false),3000);});}catch(e){}
-    if(!ok){this._ttsPlaying=false;
-      if(window.speechSynthesis){speechSynthesis.cancel();const u=new SpeechSynthesisUtterance(fallbackText);u.lang='en-US';u.rate=0.85;speechSynthesis.speak(u);}
-      return;
+    for(const c of chunks){
+      try{
+        const a=new Audio(`https://translate.google.com/translate_tts?ie=UTF-8&q=${encodeURIComponent(c)}&tl=en&client=tw-ob`);
+        await new Promise(r=>{const t=setTimeout(()=>r(false),2000);a.onended=()=>{clearTimeout(t);r(true)};a.onerror=()=>{clearTimeout(t);r(false)};a.play().catch(()=>{clearTimeout(t);r(false)});});
+        ok=true;await new Promise(r=>setTimeout(r,250));
+      }catch(e){ok=false;break;}
     }
-    if(i<audios.length-1&&this._ttsPlaying)setTimeout(()=>this._playChunks(audios,i+1,fallbackText),300);
-    else this._ttsPlaying=false;
+    // Fallback to local speech synthesis with best voice
+    if(!ok&&window.speechSynthesis){
+      speechSynthesis.cancel();
+      const voice=this._bestVoice();
+      const sentences=text.match(/[^.!?]+[.!?]+|[^.!?]+$/g)||[text];
+      sentences.forEach(s=>{const u=new SpeechSynthesisUtterance(s.trim());u.lang='en-US';u.rate=0.85;if(voice)u.voice=voice;speechSynthesis.speak(u);});
+    }
   },
   _splitChunks(text,max){const sents=text.match(/[^.!?]+[.!?]+|[^.!?]+$/g)||[text];const chunks=[];let cur='';for(const s of sents){if(cur.length+s.length>max&&cur){chunks.push(cur.trim());cur=s;}else cur+=(cur?' ':'')+s;}if(cur.trim())chunks.push(cur.trim());return chunks.length?chunks:[text];},
 
