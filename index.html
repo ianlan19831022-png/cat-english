@@ -746,7 +746,7 @@ const App = {
     const cat=unlocked.length?unlocked[Math.floor(Math.random()*unlocked.length)]:null;
     const area=document.getElementById('quiz-area');
     area.innerHTML=`
-      ${cat?`<div style="text-align:center;margin-bottom:6px;"><img src="${catImg(cat)||''}" style="width:52px;height:52px;border-radius:50%;border:2px solid ${cat.rarityColor||'#ccc'};object-fit:cover;"><div style="font-size:11px;color:var(--text-secondary);">${cat.name} 正在考你…</div></div>`:''}
+      ${cat?`<div style="text-align:center;margin-bottom:6px;"><img src="${catImg(cat)||''}" style="width:80px;height:80px;border-radius:50%;border:3px solid ${cat.rarityColor||'#ccc'};object-fit:cover;box-shadow:0 4px 12px rgba(0,0,0,.1);"><div style="font-size:13px;color:var(--text);margin-top:4px;font-weight:600;">🐱 ${cat.name}：翻译这句 👇</div></div>`:''}
       <div class="quiz-card">
         <div class="q-zh">${this.esc(s.zh)}</div>
         <input class="q-input" id="quiz-input" placeholder="输入英文翻译…" autocomplete="off">
@@ -785,19 +785,18 @@ const App = {
       colored+=`<span style="${cls}">${this.esc(userWords[i])}</span> `;
     }
     // Cat reaction
-    const catReaction=perfect?'😸 Nice!':pct>=50?'😾 Try again…':'😿 Not quite…';
+    const catReaction=perfect?'😸 Perfect!':'😾 Not quite…';
     document.getElementById('quiz-feedback').style.display='block';
     document.getElementById('quiz-feedback').innerHTML=`
       <div style="margin-bottom:10px;">${colored||'—'}</div>
       <div style="font-size:14px;color:var(--text-secondary);">标准：<b>${this.esc(s.en)}</b></div>
       <div style="font-size:28px;margin:8px 0;">${catReaction}</div>
-      <div class="btn-group" style="margin-top:8px;">
-        <button class="btn ${perfect?'btn-success':'btn-outline'} btn-sm" onclick="App.quizScore(true)">⭐ 完美</button>
-        <button class="btn btn-outline btn-sm" onclick="App.quizScore(false)">再看一下</button>
-      </div>
+      ${perfect?'':`<button class="btn btn-outline btn-sm" style="margin-top:8px;" onclick="App.retryQuiz()">🔄 再试一次</button>`}
     `;
+    if(perfect){await this.quizScore(true);setTimeout(()=>this.renderQuizCard(),1200);}
   },
 
+  retryQuiz(){document.getElementById('quiz-feedback').style.display='none';document.getElementById('quiz-input').value='';document.getElementById('quiz-input').focus();},
   async quizScore(perfect){
     const s=this.quizCurrent;
     s.reviewCount++;s.lastReviewed=this.todayStr;
