@@ -711,15 +711,23 @@ const App = {
   // ── TTS ──
   async _speakGoogleTTS(text){
     const chunks=this._splitChunks(text,180);this._ttsPlaying=true;
+    let anyFailed=false;
     try{
       for(let i=0;i<chunks.length;i++){
         if(!this._ttsPlaying)break;
         const url=`https://translate.google.com/translate_tts?ie=UTF-8&q=${encodeURIComponent(chunks[i])}&tl=en&client=tw-ob`;
         const a=new Audio(url);
-        await new Promise(r=>{a.onended=r;a.onerror=()=>{this._fallbackTTS(chunks[i]);r();};a.play().catch(()=>{this._fallbackTTS(chunks[i]);r();});});
+        const ok=await new Promise(r=>{
+          const t=setTimeout(()=>{anyFailed=true;r(false);},3000);
+          a.onended=()=>{clearTimeout(t);r(true);};
+          a.onerror=()=>{clearTimeout(t);anyFailed=true;r(false);};
+          a.play().catch(()=>{clearTimeout(t);anyFailed=true;r(false);});
+        });
+        if(!ok)break;
         if(i<chunks.length-1&&this._ttsPlaying)await new Promise(r=>setTimeout(r,300));
       }
-    }catch(e){}
+    }catch(e){anyFailed=true;}
+    if(anyFailed)this._fallbackTTS(text);
     this._ttsPlaying=false;
   },
   _fallbackTTS(text){if(!window.speechSynthesis)return;const u=new SpeechSynthesisUtterance(text);u.lang='en-US';u.rate=0.88;speechSynthesis.speak(u);},
