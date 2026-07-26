@@ -671,7 +671,7 @@ const App = {
         <div class="zh">${this.esc(s.zh)}</div>
       </div>
       <div style="text-align:center;margin-top:8px;">
-        <button class="btn btn-outline btn-sm" onclick="App.speakSentence('${this.esc(s.en).replace(/'/g,"\\'")}')">🔊 朗读</button>
+        <button class="btn btn-outline btn-sm" onclick="App.speakNow(this)" data-text="${this.esc(s.en)}">🔊 朗读</button>
       </div>`;
     // Bind word clicks
     document.querySelectorAll('#learn-card-area .w').forEach(el=>{el.addEventListener('click',e=>{e.stopPropagation();this.wordClick(el.dataset.word,e);});});
@@ -724,7 +724,7 @@ const App = {
   },
   _fallbackTTS(text){if(!window.speechSynthesis)return;const u=new SpeechSynthesisUtterance(text);u.lang='en-US';u.rate=0.88;speechSynthesis.speak(u);},
   _splitChunks(text,max){const sents=text.match(/[^.!?]+[.!?]+|[^.!?]+$/g)||[text];const chunks=[];let cur='';for(const s of sents){if(cur.length+s.length>max&&cur){chunks.push(cur.trim());cur=s;}else cur+=(cur?' ':'')+s;}if(cur.trim())chunks.push(cur.trim());return chunks.length?chunks:[text];},
-  speakSentence(text){this._speakGoogleTTS(text);},
+  speakNow(btn){const t=btn.dataset.text;if(t)this._speakGoogleTTS(t);},
 
   // ── QUIZ ──
   async prepareQuiz(){
@@ -806,7 +806,7 @@ const App = {
       const days=intervals[idx];const next=new Date();next.setDate(next.getDate()+days);
       s.nextReviewDate=next.toISOString().split('T')[0];
       s.reviewInterval=Math.min(s.reviewInterval+1,intervals.length-1);
-      if(s.reviewInterval>=2&&!s.mastered)s.mastered=true;
+      if(s.reviewInterval>=1&&!s.mastered)s.mastered=true;
     }else{s.nextReviewDate=today;s.reviewInterval=0;}
     await this.dbPut('sentences',s);
     await this.checkLevelComplete();
