@@ -703,36 +703,27 @@ const App = {
     b.querySelector('.wb-phonetic').textContent=phonetic||'/ /';
     b.querySelector('.wb-meaning').textContent=meaning||'翻译失败';
     // Auto speak
-    this._speakGoogleTTS(word);
+    this._playTTS(word);
     // Auto hide after 4s
     clearTimeout(this._wbTimer);this._wbTimer=setTimeout(()=>b.style.display='none',4000);
   },
 
   // ── TTS ──
-  async _speakGoogleTTS(text){
-    const chunks=this._splitChunks(text,180);this._ttsPlaying=true;
-    let anyFailed=false;
-    try{
-      for(let i=0;i<chunks.length;i++){
-        if(!this._ttsPlaying)break;
-        const url=`https://translate.google.com/translate_tts?ie=UTF-8&q=${encodeURIComponent(chunks[i])}&tl=en&client=tw-ob`;
-        const a=new Audio(url);
-        const ok=await new Promise(r=>{
-          const t=setTimeout(()=>{anyFailed=true;r(false);},3000);
-          a.onended=()=>{clearTimeout(t);r(true);};
-          a.onerror=()=>{clearTimeout(t);anyFailed=true;r(false);};
-          a.play().catch(()=>{clearTimeout(t);anyFailed=true;r(false);});
-        });
-        if(!ok)break;
-        if(i<chunks.length-1&&this._ttsPlaying)await new Promise(r=>setTimeout(r,300));
-      }
-    }catch(e){anyFailed=true;}
-    if(anyFailed)this._fallbackTTS(text);
-    this._ttsPlaying=false;
+  speakNow(btn){const t=btn.dataset.text;if(t)this._playTTS(t);},
+  _playTTS(text){
+    if(!window.speechSynthesis)return this.toast('浏览器不支持发音');
+    speechSynthesis.cancel();
+    const sentences=text.match(/[^.!?]+[.!?]+|[^.!?]+$/g)||[text];
+    sentences.forEach(s=>{
+      const u=new SpeechSynthesisUtterance(s.trim());
+      u.lang='en-US';u.rate=0.85;
+      // Load best voice
+      const voices=speechSynthesis.getVoices();
+      const best=voices.find(v=>v.lang.startsWith('en')&&v.name.includes('Google'))||voices.find(v=>v.lang==='en-US')||voices[0];
+      if(best)u.voice=best;
+      speechSynthesis.speak(u);
+    });
   },
-  _fallbackTTS(text){if(!window.speechSynthesis)return;const u=new SpeechSynthesisUtterance(text);u.lang='en-US';u.rate=0.88;speechSynthesis.speak(u);},
-  _splitChunks(text,max){const sents=text.match(/[^.!?]+[.!?]+|[^.!?]+$/g)||[text];const chunks=[];let cur='';for(const s of sents){if(cur.length+s.length>max&&cur){chunks.push(cur.trim());cur=s;}else cur+=(cur?' ':'')+s;}if(cur.trim())chunks.push(cur.trim());return chunks.length?chunks:[text];},
-  speakNow(btn){const t=btn.dataset.text;if(t)this._speakGoogleTTS(t);},
 
   // ── QUIZ ──
   async prepareQuiz(){
