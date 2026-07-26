@@ -704,7 +704,7 @@ const App = {
     b.querySelector('.wb-phonetic').textContent=phonetic||'/ /';
     b.querySelector('.wb-meaning').textContent=meaning||'翻译失败';
     // Auto speak
-    this._ttsPlay(word);
+    this._speak(word);
     // Auto hide after 4s
     clearTimeout(this._wbTimer);this._wbTimer=setTimeout(()=>b.style.display='none',4000);
   },
@@ -720,25 +720,15 @@ const App = {
     const v=this._allVoices||speechSynthesis.getVoices();
     return v.find(x=>x.lang==='en-US'&&x.name.includes('Google'))||v.find(x=>x.lang.startsWith('en'))||v[0];
   },
-  speakNow(btn){const t=btn.dataset.text;if(t)this._ttsPlay(t);},
-  async _ttsPlay(text){
-    const chunks=this._splitChunks(text,180);
-    // Try Google Cloud TTS first
-    let ok=false;
-    for(const c of chunks){
-      try{
-        const a=new Audio(`https://translate.google.com/translate_tts?ie=UTF-8&q=${encodeURIComponent(c)}&tl=en&client=tw-ob`);
-        await new Promise(r=>{const t=setTimeout(()=>r(false),2000);a.onended=()=>{clearTimeout(t);r(true)};a.onerror=()=>{clearTimeout(t);r(false)};a.play().catch(()=>{clearTimeout(t);r(false)});});
-        ok=true;await new Promise(r=>setTimeout(r,250));
-      }catch(e){ok=false;break;}
-    }
-    // Fallback to local speech synthesis with best voice
-    if(!ok&&window.speechSynthesis){
-      speechSynthesis.cancel();
-      const voice=this._bestVoice();
-      const sentences=text.match(/[^.!?]+[.!?]+|[^.!?]+$/g)||[text];
-      sentences.forEach(s=>{const u=new SpeechSynthesisUtterance(s.trim());u.lang='en-US';u.rate=0.85;if(voice)u.voice=voice;speechSynthesis.speak(u);});
-    }
+  speakNow(btn){const t=btn.dataset.text;if(t)this._speak(t);},
+  _speak(text){
+    if(!window.speechSynthesis)return;
+    speechSynthesis.cancel();
+    const voice=this._bestVoice();
+    const u=new SpeechSynthesisUtterance(text);
+    u.lang='en-US';u.rate=0.85;
+    if(voice)u.voice=voice;
+    speechSynthesis.speak(u);
   },
   _splitChunks(text,max){const sents=text.match(/[^.!?]+[.!?]+|[^.!?]+$/g)||[text];const chunks=[];let cur='';for(const s of sents){if(cur.length+s.length>max&&cur){chunks.push(cur.trim());cur=s;}else cur+=(cur?' ':'')+s;}if(cur.trim())chunks.push(cur.trim());return chunks.length?chunks:[text];},
 
