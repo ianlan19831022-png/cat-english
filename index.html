@@ -712,19 +712,23 @@ const App = {
   speakNow(btn){const t=btn.dataset.text;if(t)this._ttsPlay(t);},
   async _ttsPlay(text){
     const chunks=this._splitChunks(text,180);
-    let usedGoogle=false;
+    let gotGoogle=false;
     for(const c of chunks){
       try{
-        const resp=await fetch(`https://translate.google.com/translate_tts?ie=UTF-8&q=${encodeURIComponent(c)}&tl=en&client=tw-ob`,{signal:AbortSignal.timeout(3000)});
-        if(resp.ok){
-          const blob=await resp.blob();
-          const url=URL.createObjectURL(blob);
-          await new Promise(res=>{const a=new Audio(url);a.onended=()=>{URL.revokeObjectURL(url);res()};a.onerror=()=>{URL.revokeObjectURL(url);res()};a.play().catch(()=>{URL.revokeObjectURL(url);res()});});
-          usedGoogle=true;await new Promise(r=>setTimeout(r,250));
-        }else{break;}
+        const ok=await new Promise(res=>{
+          const a=new Audio(`https://translate.google.com/translate_tts?ie=UTF-8&q=${encodeURIComponent(c)}&tl=en&client=tw-ob`);
+          a.volume=1;
+          const t=setTimeout(()=>res(false),3000);
+          a.onended=()=>{clearTimeout(t);res(true)};
+          a.onerror=()=>{clearTimeout(t);res(false)};
+          a.play().catch(()=>{clearTimeout(t);res(false)});
+        });
+        if(!ok)break;
+        gotGoogle=true;
+        await new Promise(r=>setTimeout(r,250));
       }catch(e){break;}
     }
-    if(!usedGoogle&&window.speechSynthesis){speechSynthesis.cancel();const u=new SpeechSynthesisUtterance(text);u.lang='en-US';u.rate=0.85;speechSynthesis.speak(u);}
+    if(!gotGoogle&&window.speechSynthesis){speechSynthesis.cancel();const u=new SpeechSynthesisUtterance(text);u.lang='en-US';u.rate=0.85;speechSynthesis.speak(u);}
   },
   _splitChunks(text,max){const sents=text.match(/[^.!?]+[.!?]+|[^.!?]+$/g)||[text];const chunks=[];let cur='';for(const s of sents){if(cur.length+s.length>max&&cur){chunks.push(cur.trim());cur=s;}else cur+=(cur?' ':'')+s;}if(cur.trim())chunks.push(cur.trim());return chunks.length?chunks:[text];},
 
