@@ -703,32 +703,26 @@ const App = {
     b.querySelector('.wb-phonetic').textContent=phonetic||'/ /';
     b.querySelector('.wb-meaning').textContent=meaning||'翻译失败';
     // Auto speak
-    this._ttsPlay(word);
+    this._speakGoogleTTS(word);
     // Auto hide after 4s
     clearTimeout(this._wbTimer);this._wbTimer=setTimeout(()=>b.style.display='none',4000);
   },
 
   // ── TTS ──
-  speakNow(btn){const t=btn.dataset.text;if(t)this._ttsPlay(t);},
-  async _ttsPlay(text){
-    const chunks=this._splitChunks(text,180);
-    let gotGoogle=false;
-    for(const c of chunks){
-      try{
-        const ok=await new Promise(res=>{
-          const a=new Audio(`https://translate.google.com/translate_tts?ie=UTF-8&q=${encodeURIComponent(c)}&tl=en&client=tw-ob`);
-          a.volume=1;
-          const t=setTimeout(()=>res(false),3000);
-          a.onended=()=>{clearTimeout(t);res(true)};
-          a.onerror=()=>{clearTimeout(t);res(false)};
-          a.play().catch(()=>{clearTimeout(t);res(false)});
-        });
-        if(!ok)break;
-        gotGoogle=true;
-        await new Promise(r=>setTimeout(r,250));
-      }catch(e){break;}
+  speakNow(btn){const t=btn.dataset.text;if(t)this._speakGoogleTTS(t);},
+  async _speakGoogleTTS(text){
+    const chunks=this._splitChunks(text,180);this._ttsPlaying=true;
+    let failed=false;
+    for(let i=0;i<chunks.length;i++){
+      if(!this._ttsPlaying)break;
+      const url=`https://translate.google.com/translate_tts?ie=UTF-8&q=${encodeURIComponent(chunks[i])}&tl=en&client=tw-ob`;
+      const a=new Audio(url);
+      const ok=await new Promise(r=>{a.onended=()=>r(true);a.onerror=()=>r(false);a.play().catch(()=>r(false));setTimeout(()=>r(false),3000);});
+      if(!ok){failed=true;break;}
+      if(i<chunks.length-1&&this._ttsPlaying)await new Promise(r=>setTimeout(r,300));
     }
-    if(!gotGoogle&&window.speechSynthesis){speechSynthesis.cancel();const u=new SpeechSynthesisUtterance(text);u.lang='en-US';u.rate=0.85;speechSynthesis.speak(u);}
+    this._ttsPlaying=false;
+    if(failed&&window.speechSynthesis){speechSynthesis.cancel();const u=new SpeechSynthesisUtterance(text);u.lang='en-US';u.rate=0.85;speechSynthesis.speak(u);}
   },
   _splitChunks(text,max){const sents=text.match(/[^.!?]+[.!?]+|[^.!?]+$/g)||[text];const chunks=[];let cur='';for(const s of sents){if(cur.length+s.length>max&&cur){chunks.push(cur.trim());cur=s;}else cur+=(cur?' ':'')+s;}if(cur.trim())chunks.push(cur.trim());return chunks.length?chunks:[text];},
 
