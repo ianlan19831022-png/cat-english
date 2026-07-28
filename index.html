@@ -627,7 +627,7 @@ const App = {
     for(const s of sentences){
       let zh='';
       try{
-        const r=await fetch(`https://translate.googleapis.com/translate_a/single?client=gtx&sl=en&tl=zh-CN&dt=t&q=${encodeURIComponent(s.trim())}`,{signal:AbortSignal.timeout(5000)});
+        const r=await Promise.race([fetch(`https://translate.googleapis.com/translate_a/single?client=gtx&sl=en&tl=zh-CN&dt=t&q=${encodeURIComponent(s.trim())}`),new Promise((_,rej)=>setTimeout(()=>rej(new Error("timeout")),5000))]);
         if(r.ok){const d=await r.json();zh=(d[0]||[]).map(i=>i[0]).join('');}
       }catch(e){zh='翻译失败';}
       results.push({en:s.trim(),zh});
@@ -699,7 +699,7 @@ const App = {
       if(r.ok){const d=await r.json();if(d[0])phonetic=d[0].phonetic||d[0].phonetics?.[0]?.text||'';}
     }catch(e){zh='翻译失败';}
     try{
-      const r=await fetch(`https://translate.googleapis.com/translate_a/single?client=gtx&sl=en&tl=zh-CN&dt=t&q=${encodeURIComponent(word)}`,{signal:AbortSignal.timeout(5000)});
+      const r=await Promise.race([fetch(`https://translate.googleapis.com/translate_a/single?client=gtx&sl=en&tl=zh-CN&dt=t&q=${encodeURIComponent(word)}`),new Promise((_,rej)=>setTimeout(()=>rej(new Error("timeout")),5000))]);
       if(r.ok){const d=await r.json();meaning=(d[0]||[]).map(i=>i[0]).join('');}
     }catch(e){zh='翻译失败';}
     b.querySelector('.wb-phonetic').textContent=phonetic||'/ /';
