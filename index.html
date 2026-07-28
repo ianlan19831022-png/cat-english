@@ -4,7 +4,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
-<!-- TTS uses per-request referrerPolicy instead -->
+<meta name="referrer" content="no-referrer">
 <title>🐱 猫语·句子本</title>
 <style>
 :root { --bg:#faf8f5; --card:#fff; --primary:#f0835a; --primary-light:#fff3ee; --text:#2d2a26; --text-secondary:#8c8680; --border:#ede8e2; --success:#5cb85c; --danger:#e05555; --warn:#f5a623; --rare:#9b59b6; --legend:#e8a030; --shadow-sm:0 1px 3px rgba(0,0,0,.04); --shadow:0 2px 10px rgba(0,0,0,.06); --radius:16px; --radius-sm:10px; --nav-h:64px; --safe-bottom:env(safe-area-inset-bottom,0px); }
@@ -627,7 +627,7 @@ const App = {
     for(const s of sentences){
       let zh='';
       try{
-        const r=await Promise.race([fetch(`https://translate.googleapis.com/translate_a/single?client=gtx&sl=en&tl=zh-CN&dt=t&q=${encodeURIComponent(s.trim())}`),new Promise((_,rej)=>setTimeout(()=>rej(new Error("timeout")),5000))]);
+        const r=await Promise.race([fetch(`https://translate.googleapis.com/translate_a/single?client=gtx&sl=en&tl=zh-CN&dt=t&q=${encodeURIComponent(s.trim())}`,{referrerPolicy:"strict-origin-when-cross-origin"}),new Promise((_,rej)=>setTimeout(()=>rej(new Error("timeout")),5000))]);
         if(r.ok){const d=await r.json();zh=(d[0]||[]).map(i=>i[0]).join('');}
       }catch(e){zh='翻译失败';}
       results.push({en:s.trim(),zh});
@@ -699,7 +699,7 @@ const App = {
       if(r.ok){const d=await r.json();if(d[0])phonetic=d[0].phonetic||d[0].phonetics?.[0]?.text||'';}
     }catch(e){zh='翻译失败';}
     try{
-      const r=await Promise.race([fetch(`https://translate.googleapis.com/translate_a/single?client=gtx&sl=en&tl=zh-CN&dt=t&q=${encodeURIComponent(word)}`),new Promise((_,rej)=>setTimeout(()=>rej(new Error("timeout")),5000))]);
+      const r=await Promise.race([fetch(`https://translate.googleapis.com/translate_a/single?client=gtx&sl=en&tl=zh-CN&dt=t&q=${encodeURIComponent(word)}`,{referrerPolicy:"strict-origin-when-cross-origin"}),new Promise((_,rej)=>setTimeout(()=>rej(new Error("timeout")),5000))]);
       if(r.ok){const d=await r.json();meaning=(d[0]||[]).map(i=>i[0]).join('');}
     }catch(e){zh='翻译失败';}
     b.querySelector('.wb-phonetic').textContent=phonetic||'/ /';
@@ -722,13 +722,9 @@ const App = {
     return v.find(x=>x.lang==='en-US'&&x.name.includes('Google'))||v.find(x=>x.lang.startsWith('en'))||v[0];
   },
   speakNow(btn){const t=btn.dataset.text;if(t)this._speakGoogle(t);},
-  async _speakGoogle(text){
-    const url='https://translate.google.com/translate_tts?ie=UTF-8&q='+encodeURIComponent(text)+'&tl=en&client=tw-ob';
-    try{
-      const r=await fetch(url,{referrerPolicy:'no-referrer',signal:AbortSignal.timeout(4000)});
-      if(r.ok){const blob=await r.blob();const a=new Audio(URL.createObjectURL(blob));a.onended=()=>URL.revokeObjectURL(a.src);await a.play();return;}
-    }catch(e){}
-    this._speakFallback(text);
+  _speakGoogle(text){
+    const a=new Audio('https://translate.google.com/translate_tts?ie=UTF-8&q='+encodeURIComponent(text)+'&tl=en&client=tw-ob');
+    a.play().catch(()=>{this._speakFallback(text);});
   },
   _speakFallback(text){
     if(!window.speechSynthesis)return;
