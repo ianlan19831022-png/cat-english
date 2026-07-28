@@ -595,7 +595,7 @@ const App = {
             <div style="color:${s.archived?'var(--text-secondary)':'var(--text)'};">${this.esc(preview)}</div>
             <div style="font-size:11px;color:var(--text-secondary);">${this.esc(s.zh)}</div>
           </div>
-          <button class="btn btn-outline btn-sm" style="padding:3px 10px;font-size:11px;white-space:nowrap;" onclick="App.toggleArchive(${s.id})">${s.archived?'恢复':'归档'}</button>
+          <button class="btn btn-outline btn-sm" style="padding:3px 10px;font-size:11px;white-space:nowrap;" onclick="App.toggleArchive(${s.id})">${s.archived?'恢复':'归档'}</button>\n          <button class="btn btn-outline btn-sm" style="padding:3px 8px;font-size:11px;white-space:nowrap;color:var(--danger);" onclick="App.deleteSentence(${s.id})">✕</button>
         </div>`;
       }
     }
@@ -603,6 +603,15 @@ const App = {
     area.style.display='block';
   },
 
+  async retranslate(id){
+    const s=await this.dbGet('sentences',id);if(!s)return;
+    try{
+      const r=await Promise.race([fetch('https://translate.googleapis.com/translate_a/single?client=gtx&sl=en&tl=zh-CN&dt=t&q='+encodeURIComponent(s.en),{referrerPolicy:'strict-origin-when-cross-origin'}),new Promise((_,rej)=>setTimeout(()=>rej(new Error('timeout')),5000))]);
+      if(r.ok){const d=await r.json();s.zh=(d[0]||[]).map(i=>i[0]).join('');await this.dbPut('sentences',s);this.toast('重译成功');}
+    }catch(e){this.toast('重译失败');}
+    this.toggleOverview();
+  },
+  async deleteSentence(id){await this.dbDelete('sentences',id);this.toast('已删除');this.toggleOverview();},
   async toggleArchive(id){
     const s=await this.dbGet('sentences',id);if(!s)return;
     s.archived=!s.archived;await this.dbPut('sentences',s);
